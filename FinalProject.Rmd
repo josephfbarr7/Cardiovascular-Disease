@@ -1,0 +1,117 @@
+---
+title: "Senior Cpatsone Project"
+author: "Joseph Barr"
+date: "5/4/2021"
+output: html_document
+---
+
+```{r}
+Cardio <- read.csv("~/DATA 498A/cardiovascular_diseases_dv3.csv",sep=";")
+summary(Cardio)
+```
+
+
+
+```{r}
+normalize <- function(x){
+  return ((x-min(x)) / (max(x) - min(x)))
+}
+
+accuracy <- function(x){
+  sum(diag(x) / (sum(rowSums(x)))) * 100
+}
+cardio_normal <- as.data.frame(lapply(Cardio[1:11], normalize))
+summary(cardio_normal)
+randomSample <- sample(1:nrow(cardio_normal), 0.7 * nrow(cardio_normal), replace = FALSE)
+cardio_train <- cardio_normal[randomSample,]
+cardio_test <- cardio_normal[-randomSample,]
+Cardio_subset <- Cardio[c("AGE", "GENDER", "HEIGHT", "WEIGHT", "AP_HIGH", "AP_LOW", "CHOLESTEROL", "GLUCOSE", "SMOKE", "ALCOHOL", "PHYSICAL_ACTIVITY", "CARDIO_DISEASE")]
+cardio_train_cat <- Cardio_subset[randomSample,12]
+cardio_test_cat <- Cardio_subset[-randomSample,12]
+
+library(class)
+cardio_test_prediction1 <- knn(train = cardio_train, test = cardio_test, cl =  cardio_train_cat, k = 265)
+plot(cardio_test_prediction1, xlab = "Cardiovascular Disease (No or Yes)", ylab = "Number", col = c("dark red", "dark blue"), main = "Prediction 1")
+tab <- table(cardio_test_prediction1,cardio_test_cat)
+
+accuracy(tab)
+table(cardio_test_prediction1,cardio_test_cat)
+```
+
+
+```{r}
+library(corrplot)
+library(RColorBrewer)
+library(tidyverse)
+correlation <- cor(cardio_normal)
+
+png("file2.png", width = 350, height = 400)
+
+corrplot(correlation, type = "upper", order = "hclust", col=brewer.pal(n=8, name = "YlGnBu"), tl.cex = 1, tl.col = "Blue")
+```
+
+```{r}
+heart[c("GENDER", "CHOLESTEROL", "GLUCOSE", "SMOKE", "ALCOHOL", "PHYSICAL_ACTIVITY", "CARDIO_DISEASE")] <- lapply(heart[c("GENDER", "CHOLESTEROL", "GLUCOSE", "SMOKE", "ALCOHOL", "PHYSICAL_ACTIVITY", "CARDIO_DISEASE")], factor)
+summary (heart)
+df <- data.frame(unique(heart$AGE)[order(unique(heart$AGE))])
+df$Age <- df$unique.heart.AGE..order.unique.heart.AGE...
+df = df %>% select(-c(unique.heart.AGE..order.unique.heart.AGE...))
+df$Disease = replicate(nrow(df), factor("1"))
+count <- numeric()
+i = 1
+for (ele in unique(heart$AGE)[order(unique(heart$AGE))]) {
+  count[i]=nrow(heart %>% filter(AGE == ele, CARDIO_DISEASE == 1))
+  i = i + 1
+}
+df$Count = count
+ex <- data.frame(unique(heart$AGE)[order(unique(heart$AGE))])
+ex$Age <- ex$unique.heart.AGE..order.unique.heart.AGE...
+ex = ex %>% select(-c(unique.heart.AGE..order.unique.heart.AGE...))
+ex$Disease = replicate(nrow(df), factor("0"))
+count.0 <- numeric()
+i = 1
+for (ele in unique(heart$AGE)[order(unique(heart$AGE))]) {
+  count.0[i]=nrow(heart %>% filter(AGE == ele, CARDIO_DISEASE == 0))
+  i = i + 1
+}
+ex$Count = count.0
+full <- rbind(ex, df)
+Full
+
+library(ggplot2)
+ggplot(full, aes(x = Age, fill = Disease, 
+  y = ifelse(test = Disease == "1", yes = -Count, no = Count))) + 
+  geom_bar(stat = "identity") + 
+  scale_y_continuous(labels = abs, limits = max(full$Count)*c(-1,1)) + 
+  labs(title = "Number of cases of Cardiovascular disease by age", x = "Age", y = "Count") +
+  coord_flip()
+
+```
+
+```{r}
+obs = c(5000, 9000, 10000, 11000, 11500, 12000, 14000, 15000, 40000)
+error_df<-data.frame(matrix(ncol = 3, nrow = length(obs)))
+colnames(error_df) <- c('Test_rate_error',"Accuracy",'Obs')
+
+i = 1
+for (ele in obs) {
+  s = sample(nrow(heart), ele)
+  heart.set = heart[s,]
+  
+  split_index <- as.vector(createDataPartition(heart.set$CARDIO_DISEASE, p = 0.7, list = F))
+  training = heart.set[split_index, ]
+  features_test = heart.set[-split_index, !(colnames(heart.set) %in% c('CARDIO_DISEASE'))]
+  target_test = heart.set[-split_index, "CARDIO_DISEASE"]
+  rf_train <- randomForest(CARDIO_DISEASE~., data= training, mtry = 3)
+  preds.heart <- predict(rf_train, newdata = features_test)
+  mean.rate.error <- mean(preds.heart!=target_test)
+  error_df[i,"Obs"] = ele
+  error_df[i, "Test_rate_error"] = mean.rate.error
+  error_df[i, "Accuracy"] = 1-mean.rate.error
+  i = i+1
+}
+Error_df
+plot(error_df$Obs, error_df$Accuracy, xlab = "Observations", ylab = "Accuracy percentage", main = "Accuracy of random forest", type = "l")
+
+```
+
